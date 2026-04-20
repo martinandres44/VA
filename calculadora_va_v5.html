@@ -1,0 +1,214 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body,div{font-family:system-ui,-apple-system,sans-serif}
+.bg{background:#f5f4f0;padding:1.25rem;border-radius:14px}
+.card{background:#fff;border:1px solid #e2e0d8;border-radius:12px;overflow:hidden}
+.card-header{padding:.7rem 1rem;border-bottom:1px solid #e2e0d8;display:flex;align-items:center;gap:10px;background:#faf9f7;flex-wrap:wrap}
+.card-header label{font-size:12px;color:#888}
+.card-header input[type=range]{width:130px;accent-color:#378ADD}
+.tv{font-size:13px;font-weight:600;color:#222;min-width:36px}
+.tm{font-size:12px;color:#999}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr)}
+.mc{padding:.65rem .85rem;border-right:1px solid #e2e0d8}
+.mc:last-child{border-right:none}
+.mc .l{font-size:10px;color:#999;margin-bottom:2px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.mc .v{font-size:15px;font-weight:600;color:#222}
+.mc .v.blue{color:#185FA5}
+.tbl-head{display:grid;grid-template-columns:minmax(0,1.9fr) 68px minmax(0,1.1fr) 90px 52px;padding:5px 10px;border-top:1px solid #e2e0d8;border-bottom:1px solid #d0cec6;background:#faf9f7}
+.tbl-head span{font-size:10px;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tbl-head span.r{text-align:right}
+.frow{border-bottom:1px solid #eeede8}
+.frow:last-child{border-bottom:none}
+.main-line{display:grid;grid-template-columns:minmax(0,1.9fr) 68px minmax(0,1.1fr) 90px 52px;padding:5px 10px;align-items:center;gap:4px}
+.sub-line{padding:1px 10px 6px;display:flex;gap:14px;align-items:center;background:#faf9f7}
+.sub-line span{font-size:11px;color:#aaa}
+.monto-input{width:110px;font-size:12px;padding:2px 6px;border-radius:5px;border:1px solid #ddd;background:#fff;color:#222;text-align:right}
+.monto-input:focus{outline:none;border-color:#378ADD}
+.fi{width:100%;font-size:12px;padding:3px 6px;border-radius:5px;border:1px solid #ddd;background:#fff;color:#222}
+.fi:focus{outline:none;border-color:#378ADD}
+select.fi{cursor:pointer}
+.mes-pair{display:flex;gap:3px;align-items:center}
+.mes-pair input{width:36px;font-size:12px;padding:3px 4px;border-radius:5px;border:1px solid #ddd;background:#fff;color:#222;text-align:center}
+.mes-pair input:focus{outline:none;border-color:#378ADD}
+.mes-sep{font-size:11px;color:#bbb}
+.va-val{font-size:12px;font-weight:600;color:#185FA5;text-align:right;padding-right:2px}
+.actions{display:flex;gap:3px;align-items:center;justify-content:flex-end}
+.btn-sm{width:20px;height:20px;border-radius:4px;border:1px solid #ddd;background:#fff;color:#888;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.btn-sm:hover{background:#f0f0ee;color:#333}
+.btn-del{width:20px;height:20px;border-radius:4px;border:1px solid #ddd;background:#fff;color:#bbb;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.btn-del:hover{background:#fff0f0;color:#c0392b;border-color:#f5c6c6}
+.footer{padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e2e0d8;background:#faf9f7}
+.btn-add{font-size:12px;padding:5px 12px;border-radius:5px;border:1px solid #ddd;background:#fff;color:#444;cursor:pointer}
+.btn-add:hover{background:#f0f0ee}
+.total-va{font-size:13px;font-weight:600;color:#185FA5}
+</style>
+
+<div class="bg">
+  <div class="card">
+    <div class="card-header">
+      <label>Tasa anual</label>
+      <input type="range" id="tasa" min="1" max="25" step="0.5" value="5">
+      <span class="tv" id="tv">5.0%</span>
+      <span class="tm" id="tm">· mensual 0.417%</span>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="tbl-head">
+      <span>Descripción</span>
+      <span>Tipo</span>
+      <span>Mes(es)</span>
+      <span class="r">Valor actual</span>
+      <span></span>
+    </div>
+    <div id="filas"></div>
+    <div class="footer">
+      <button class="btn-add" onclick="addFlujo()">+ Agregar flujo</button>
+      <span class="total-va" id="total-va"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+let nid=0;
+let flujos=[
+  {id:nid++,desc:'Pago inicial',tipo:'unico',mes:0,monto:600000},
+  {id:nid++,desc:'Cuotas 1–36',tipo:'renta',mesDesde:1,mesHasta:36,monto:6000},
+  {id:nid++,desc:'Balloon cuota 36',tipo:'unico',mes:36,monto:450000},
+  {id:nid++,desc:'Cuotas 37–72',tipo:'renta',mesDesde:37,mesHasta:72,monto:12000},
+  {id:nid++,desc:'Pago final',tipo:'unico',mes:72,monto:600000},
+];
+
+function sortKey(f){return f.tipo==='unico'?(f.mes||0):(f.mesDesde||0);}
+function sortFlujos(){flujos.sort((a,b)=>sortKey(a)-sortKey(b));}
+function fmt(n){return Math.round(n).toLocaleString('es-AR');}
+
+function calcVA(f,tm){
+  if(f.tipo==='unico') return (f.monto||0)/Math.pow(1+tm,f.mes||0);
+  let v=0,d=+f.mesDesde||1,h=+f.mesHasta||1;
+  for(let i=Math.min(d,h);i<=Math.max(d,h);i++) v+=(f.monto||0)/Math.pow(1+tm,i);
+  return v;
+}
+
+function nomFlujo(f){
+  if(f.tipo==='unico') return +f.monto||0;
+  return (f.monto||0)*(Math.abs((+f.mesHasta||1)-(+f.mesDesde||1))+1);
+}
+
+// Formatea mientras se tipea: permite solo dígitos, agrega puntos como separadores
+function fmtInput(el){
+  const raw=el.value.replace(/\D/g,'');
+  const num=parseInt(raw||'0',10);
+  el.value=num>0?num.toLocaleString('es-AR'):'';
+  return num;
+}
+
+function attachMontoInput(el, fid){
+  el.addEventListener('focus',function(){
+    const raw=(this.value||'').replace(/\./g,'').replace(/,/g,'');
+    this.value=raw;
+    this.select();
+  });
+  el.addEventListener('input',function(){
+    const pos=this.selectionStart;
+    const before=this.value.length;
+    fmtInput(this);
+    const after=this.value.length;
+    this.setSelectionRange(pos+(after-before),pos+(after-before));
+  });
+  el.addEventListener('change',function(){
+    const num=parseInt((this.value||'').replace(/\./g,'').replace(/,/g,'')||'0',10);
+    upd(fid,'monto',num,false);
+  });
+  el.addEventListener('blur',function(){
+    const num=parseInt((this.value||'').replace(/\./g,'').replace(/,/g,'')||'0',10);
+    this.value=num>0?num.toLocaleString('es-AR'):'0';
+    upd(fid,'monto',num,false);
+  });
+}
+
+function render(){
+  const tasa=parseFloat(document.getElementById('tasa').value)/100;
+  const tm=tasa/12;
+  document.getElementById('tv').textContent=(tasa*100).toFixed(1)+'%';
+  document.getElementById('tm').textContent='· mensual '+(tm*100).toFixed(3)+'%';
+
+  let totNom=0,totVA=0;
+  const vas=flujos.map(f=>{const v=calcVA(f,tm);totVA+=v;totNom+=nomFlujo(f);return v;});
+
+  document.getElementById('metrics').innerHTML=`
+    <div class="mc"><div class="l">Total nominal</div><div class="v">$${fmt(totNom)}</div></div>
+    <div class="mc"><div class="l">Valor actual</div><div class="v blue">$${fmt(totVA)}</div></div>
+    <div class="mc"><div class="l">Descuento</div><div class="v">$${fmt(totNom-totVA)}</div></div>
+    <div class="mc"><div class="l">% pérdida</div><div class="v">${((1-totVA/totNom)*100).toFixed(1)}%</div></div>
+  `;
+  document.getElementById('total-va').textContent='Total VA: $'+fmt(totVA);
+
+  const cont=document.getElementById('filas');
+  cont.innerHTML='';
+
+  flujos.forEach((f,i)=>{
+    const d=document.createElement('div');
+    d.className='frow';
+
+    const mesParam=f.tipo==='unico'
+      ?`<input class="fi" type="number" value="${f.mes||0}" onchange="upd(${f.id},'mes',+this.value,true)" style="width:52px;text-align:center">`
+      :`<div class="mes-pair">
+          <input type="number" value="${f.mesDesde||1}" onchange="upd(${f.id},'mesDesde',+this.value,true)">
+          <span class="mes-sep">–</span>
+          <input type="number" value="${f.mesHasta||1}" onchange="upd(${f.id},'mesHasta',+this.value,true)">
+        </div>`;
+
+    const sub=f.tipo==='renta'
+      ?`<span>${Math.abs((+f.mesHasta||1)-(+f.mesDesde||1))+1} cuotas · nom. $${fmt(nomFlujo(f))}</span>`
+      :`<span>Nominal $${fmt(f.monto||0)}</span>`;
+
+    const canUp=i>0, canDn=i<flujos.length-1;
+
+    d.innerHTML=`
+      <div class="main-line">
+        <input class="fi" value="${f.desc}" onchange="upd(${f.id},'desc',this.value,false)">
+        <select class="fi" onchange="upd(${f.id},'tipo',this.value,false)">
+          <option value="unico"${f.tipo==='unico'?' selected':''}>Único</option>
+          <option value="renta"${f.tipo==='renta'?' selected':''}>Renta</option>
+        </select>
+        ${mesParam}
+        <div class="va-val">$${fmt(vas[i])}</div>
+        <div class="actions">
+          <button class="btn-sm" onclick="moveUp(${f.id})" ${canUp?'':'disabled'} style="opacity:${canUp?1:.3}">▲</button>
+          <button class="btn-sm" onclick="moveDn(${f.id})" ${canDn?'':'disabled'} style="opacity:${canDn?1:.3}">▼</button>
+          <button class="btn-del" onclick="delFlujo(${f.id})">×</button>
+        </div>
+      </div>
+      <div class="sub-line">
+        <span>${f.tipo==='unico'?'Monto':'Cuota'}</span>
+        <input class="monto-input" data-fid="${f.id}" value="${(f.monto||0).toLocaleString('es-AR')}">
+        ${sub}
+      </div>
+    `;
+    cont.appendChild(d);
+
+    const montoEl=d.querySelector('.monto-input');
+    attachMontoInput(montoEl, f.id);
+  });
+}
+
+function upd(id,campo,val,resort){
+  const f=flujos.find(x=>x.id===id);
+  if(!f)return;
+  if(campo==='tipo'){
+    if(val==='renta'){f.mesDesde=f.mes||0;f.mesHasta=(f.mes||0)+11;delete f.mes;}
+    else{f.mes=f.mesDesde||0;delete f.mesDesde;delete f.mesHasta;}
+  }
+  f[campo]=val;
+  if(resort)sortFlujos();
+  render();
+}
+
+function moveUp(id){const i=flujos.findIndex(x=>x.id===id);if(i>0){[flujos[i-1],flujos[i]]=[flujos[i],flujos[i-1]];render();}}
+function moveDn(id){const i=flujos.findIndex(x=>x.id===id);if(i<flujos.length-1){[flujos[i],flujos[i+1]]=[flujos[i+1],flujos[i]];render();}}
+function delFlujo(id){flujos=flujos.filter(x=>x.id!==id);render();}
+function addFlujo(){flujos.push({id:nid++,desc:'Nuevo flujo',tipo:'unico',mes:0,monto:0});sortFlujos();render();}
+
+document.getElementById('tasa').addEventListener('input',render);
+render();
+</script>
